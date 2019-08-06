@@ -1,0 +1,23 @@
+sudo /usr/local/bin/virtualenv venv
+source venv/bin/activate
+pip install -r requirements.txt
+chown -R omsserver:www-data omsserver
+
+cp omsserver.service /etc/systemd/system/omsserver.service
+chmod 755 /etc/systemd/system/omsserver.service
+systemctl daemon-reload
+
+touch /var/log/omsserver.log
+chown omsserver:www-data /var/log/omsserver.log
+
+# Start your service
+systemctl start omsserver.service
+
+# Obtain your services' status
+systemctl status omsserver.service
+
+# Stop your service
+systemctl stop omsserver.service
+
+# Restart your service
+systemctl restart omsserver.service
