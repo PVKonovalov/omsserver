@@ -32,9 +32,14 @@ def to_color_voltage_state(object_state_topology):
         for item in object_state_topology:
 
             state = item['State']
+            cache_object = object_cache_for_state.get(item['ObjectId'])
+
+            if cache_object:
+                object_type = cache_object.get('type')
+            else:
+                object_type = None
 
             if state == 'UnderVoltage':
-                cache_object = object_cache_for_state.get(item['ObjectId'])
                 if cache_object:
                     class_u = cache_object.get('class_u')
 
@@ -42,8 +47,11 @@ def to_color_voltage_state(object_state_topology):
                         state = 'UnderVoltage04kV'
                     elif class_u > 1:
                         state = 'UnderVoltage{}kV'.format(int(class_u))
-
-            object_state_oms.append({'guid': item['ObjectId'], 'state': state})
+            # TODO: 'position' должна устанавливаться из состояния КА полученного от ОИК
+            if object_type == 'OTYP_RECLOSER':
+                object_state_oms.append({'guid': item['ObjectId'], 'state': state, 'position': 'SS_PWS_ON'})
+            else:
+                object_state_oms.append({'guid': item['ObjectId'], 'state': state})
 
     return object_state_oms
 
@@ -55,18 +63,26 @@ def load_object_cache_for_state(db):
     только статус Под_напряжением без указания класса напряжения,
     а на карте необходимо отобразить это состояние разными цветами в зависимости
     от класса напряжения.
+
+    equipment_type содержит список типов оборудования отображаемых на GIS подложке
     :param db:
     """
+
+    equipment_type = "'OTYP_RECLOSER', 'OTYP_AIR_POWER_LINE', 'OTYP_IKZ', 'OTYP_AIR_LINE_SEGMENT'"
+
     if db is None:
         return
 
     global object_cache_for_state
     object_cache_for_state = {}
 
-    sql = 'SELECT BIN_TO_UUID(guid) as guid, name, class_u ' \
+    sql = 'SELECT BIN_TO_UUID(guid) as guid, equipment.name as name, equipment.class_u as class_u, ' \
+          'equipment_type.alias as type ' \
           'FROM equipment ' \
-          'WHERE class_u is not NULL ' \
-          'ORDER by guid'
+          'LEFT JOIN equipment_type ON equipment.equipment_type_id = equipment_type.id ' \
+          'WHERE ' \
+          'equipment_type.alias in ({}) ' \
+          'ORDER BY guid'.format(equipment_type)
 
     cursor = db.cursor()
 
