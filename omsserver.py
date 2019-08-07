@@ -111,7 +111,7 @@ def background_thread_state_changed():
 def background_thread_marker_set():
     global markers
     styles = ['marker-Zvonok-076420.png']
-#, 'marker-Brigada_OVB-200850.png', 'marker-Avariya-466037.png']
+    # , 'marker-Brigada_OVB-200850.png', 'marker-Avariya-466037.png']
     idx = 100
     while True:
         socketio.sleep(63)
@@ -190,10 +190,15 @@ def test_connect():
     # if thread_state_changed_bg is None:
     #   thread_state_changed_bg = socketio.start_background_task(background_thread_state_changed)
 
-
     #
     # if thread_car_remove is None:
     #   thread_car_remove = socketio.start_background_task(background_thread_car_remove)
+
+
+"""
+Регистрация нового сеанса пользователя OMS. Возвращается сессионный ключ и описание пользователя.
+"""
+
 
 @app.route('/rsdu/oms/api/user/login/', methods=['GET', 'POST'])
 @app.route('/rsdu/oms/api/login/', methods=['GET', 'POST'])
@@ -202,6 +207,11 @@ def user_login():
     login = request.args.get('login', type=str, default=request.form.get('login', default=None))
     password = request.args.get('password', type=str, default=request.form.get('password', default=None))
     return resp(200, user.login(mysql.get_db(), login, password, request.remote_addr))
+
+
+"""
+Закрытие сеанса пользователя OMS.
+"""
 
 
 @app.route('/rsdu/oms/api/user/logout/')
@@ -216,6 +226,11 @@ def user_logout():
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
+"""
+Получить список пользователей OMS.
+"""
+
+
 @app.route('/rsdu/oms/api/user/list/')
 @crossdomain(origin='*', headers='Session-Key')
 def user_list():
@@ -227,6 +242,11 @@ def user_list():
                                        request.args.get('page', type=int, default=None)))
     else:
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
+
+
+"""
+Получить описание текущего (заданног) пользователя OMS.
+"""
 
 
 @app.route('/rsdu/oms/api/user/')
@@ -489,7 +509,11 @@ def gis_search():
     return resp(200, gis_index.fulltext_search_in_index(mysql.get_db(), search))
 
 
-# Получить текущее состояние объектов
+"""
+Получить текущее состояние объектов (оборудования)
+"""
+
+
 @app.route('/rsdu/oms/api/gis/object/state/')
 @crossdomain(origin='*', headers='Session-Key')
 def gis_get_object_state():
@@ -740,10 +764,12 @@ def search_in_customer():
 def customer_outage_journal():
     return resp(200, outage.get_customer_outage_journal(mysql.get_db()))
 
+
 @app.route('/rsdu/oms/api/kml_style/list/')
 @crossdomain(origin='*', headers='Session-Key')
 def kml_stile_list():
     return resp(200, gis_kml_style.get_list())
+
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
