@@ -200,12 +200,13 @@ def test_connect():
 """
 
 
-@app.route('/rsdu/oms/api/user/login/', methods=['GET', 'POST'])
-@app.route('/rsdu/oms/api/login/', methods=['GET', 'POST'])
+@app.route('/rsdu/oms/api/user/login/', methods=['POST'])
+@app.route('/rsdu/oms/api/login/', methods=['POST'])
 @crossdomain(origin='*', headers='Session-Key')
 def user_login():
-    login = request.args.get('login', type=str, default=request.form.get('login', default=None))
-    password = request.args.get('password', type=str, default=request.form.get('password', default=None))
+    login_and_password = request.get_json(force=True)
+    login = login_and_password.get('login')
+    password = login_and_password.get('password')
     return resp(200, user.login(mysql.get_db(), login, password, request.remote_addr))
 
 
@@ -772,4 +773,4 @@ def kml_stile_list():
 
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000)
+    app.run(host='0.0.0.0', port=5000)
