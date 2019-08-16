@@ -52,6 +52,7 @@ from helper_crossdomain import crossdomain
 from helper_json import resp
 from helper_session import is_login
 import gis_kml_style
+import gis_mobile
 
 app = Flask(__name__)
 app.secret_key = '6aa80874-8984-4d72-b82e-5e1fe2a26060'
@@ -492,6 +493,14 @@ def gis_layer_list():
     else:
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
+@app.route('/rsdu/oms/api/gis_mobile/layer/list/')
+@crossdomain(origin='*', headers='Session-Key')
+def gis_mobile_layer_list():
+    accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')
+    if is_login(mysql.get_db(), request.headers.get('Session-Key', type=str, default=None)):
+        return resp(200, gis_mobile.layer_get_list(mysql.get_db()))
+    else:
+        return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 @app.route('/rsdu/oms/api/gis/layer/<int:key>/')
 @crossdomain(origin='*', headers='Session-Key')

@@ -104,7 +104,6 @@ def map_provider_get_list(db):
 
     return r
 
-
 def layer_get_list(db):
     """
     Return the list of enabled layers
