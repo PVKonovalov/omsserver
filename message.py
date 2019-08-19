@@ -122,11 +122,12 @@ def get_list(db, order='none', limit=None, page=None, user_from=None, user_to=No
     if limit is not None and page is not None:
         sql_limit = ' limit {} offset {}'.format(limit, (page - 1) * limit)
 
-    sql_base = 'select BIN_TO_UUID(message.guid) AS guid, message.name, has_received, time_stamp, user_from_id, ' \
+    sql_base = 'select BIN_TO_UUID(message.guid) AS guid, message.sentence, message_type.alias as type, has_received, time_stamp, user_from_id, ' \
                'user_from.name as user_from, user_to.name as user_to, user_to_id ' \
                'from message ' \
                'left join user as user_from on message.user_from_id = user_from.id ' \
-               'left join user as user_to on message.user_to_id = user_to.id '
+               'left join user as user_to on message.user_to_id = user_to.id ' \
+               'left join message_type on message.type_id = message_type.id '
 
     sql_order = ''
 
@@ -212,11 +213,12 @@ def get_item_by_id(db, message_id):
     if message_id is None or message_id <= 0:
         return {'status': 'Error', 'message': 'Message id is not acceptable'}
 
-    sql_base = 'select BIN_TO_UUID(message.guid) as guid, message.name, has_received, time_stamp, user_from_id, ' \
+    sql_base = 'select BIN_TO_UUID(message.guid) as guid, message.sentence, message_type.alias as type,  has_received, time_stamp, user_from_id, ' \
                'user_from.name as user_from, user_to.name as user_to, user_to_id ' \
                'from message ' \
                'left join user as user_from on message.user_from_id = user_from.id ' \
-               'left join user as user_to on message.user_to_id = user_to.id '
+               'left join user as user_to on message.user_to_id = user_to.id ' \
+               'left join message_type on message.type_id = message_type.id '
 
     sql_where = ' where message.id = %s'
 
@@ -243,11 +245,12 @@ def get_item_by_guid(db, message_guid):
     if not is_valid_uuid(message_guid):
         return {'status': 'Error', 'message': 'Message guid is not acceptable'}
 
-    sql_base = 'select BIN_TO_UUID(message.guid) as guid, message.name, has_received, time_stamp, user_from_id, ' \
+    sql_base = 'select BIN_TO_UUID(message.guid) as guid, message.sentence, message_type.alias as type, has_received, time_stamp, user_from_id, ' \
                'user_from.name as user_from, user_to.name as user_to, user_to_id ' \
                'from message ' \
                'left join user as user_from on message.user_from_id = user_from.id ' \
-               'left join user as user_to on message.user_to_id = user_to.id '
+               'left join user as user_to on message.user_to_id = user_to.id ' \
+               'left join message_type on message.type_id = message_type.id '
 
     sql_where = ' where message.guid = UUID_TO_BIN(%s)'
 
@@ -288,8 +291,8 @@ def send(db, user_to_id, session_key, message_json):
     time_stamp = datetime.now()
     message_guid = str(uuid.uuid4())
 
-    sql_insert = 'insert into message (guid, user_from_id,user_to_id,time_stamp,name) ' \
-                 'values(UUID_TO_BIN(%s),%s,%s,%s,%s)'
+    sql_insert = 'insert into message (guid, user_from_id,user_to_id,time_stamp,sentence,type_id) ' \
+                 'values(UUID_TO_BIN(%s),%s,%s,%s,%s.%s)'
     cursor = db.cursor()
     try:
         cursor.execute(sql_insert, (message_guid, user_from_id, user_to_id, time_stamp, message_str))
