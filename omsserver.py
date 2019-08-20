@@ -385,7 +385,7 @@ def message_delete(key=None):
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
-@app.route('/rsdu/oms/api/message/send/<int:key>/', methods=['GET', 'POST'])
+@app.route('/rsdu/oms/api/message/send/<int:key>/', methods=['POST'])
 @crossdomain(origin='*', headers='Session-Key')
 def message_send(key=None):
     accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')

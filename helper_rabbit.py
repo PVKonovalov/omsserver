@@ -11,7 +11,7 @@ import pika
 from flask import current_app as app
 
 
-def send_via_rabbit(user_from_id, user_from, user_to_id, message_guid, message_str):
+def send_via_rabbit(user_from_id, user_from, user_to_id, message_guid, message_str, message_type):
     """
     Send message via RabbitMQ server
     :param user_from_id:
@@ -29,7 +29,8 @@ def send_via_rabbit(user_from_id, user_from, user_to_id, message_guid, message_s
             "user_from": user_from,
             "user_to_id": user_to_id,
             "message_guid": message_guid,
-            "message": message_str
+            "message": message_str,
+            "message_type": message_type
         }
 
         connection = pika.BlockingConnection(pika.ConnectionParameters(rabbit_connection, credentials=credentials))

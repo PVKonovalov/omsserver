@@ -279,7 +279,13 @@ def send(db, user_to_id, session_key, message_json):
     if user_to_id is None or user_to_id <= 0:
         return {'status': 'Error', 'message': 'Originator id is not acceptable'}
 
-    message_str = item_from_json(message_json, 'message')
+    message_type = item_from_json(message_json, 'type')
+
+    if message_type == 'Text':
+        message_str = item_from_json(message_json, 'message')
+        type_id = 1
+    else:
+        return {'status': 'Error', 'message': 'Unsupported message type \'{}\''.format(message_type)}
 
     if message_str is None or message_str == '':
         return {'status': 'Error', 'message': 'Message is empty'}
@@ -292,18 +298,18 @@ def send(db, user_to_id, session_key, message_json):
     message_guid = str(uuid.uuid4())
 
     sql_insert = 'insert into message (guid, user_from_id,user_to_id,time_stamp,sentence,type_id) ' \
-                 'values(UUID_TO_BIN(%s),%s,%s,%s,%s.%s)'
+                 'values(UUID_TO_BIN(%s),%s,%s,%s,%s,%s)'
     cursor = db.cursor()
     try:
-        cursor.execute(sql_insert, (message_guid, user_from_id, user_to_id, time_stamp, message_str))
+        cursor.execute(sql_insert, (message_guid, user_from_id, user_to_id, time_stamp, message_str, type_id))
         db.commit()
 
-        send_via_rabbit(user_from_id, user(db, user_from_id), user_to_id, message_guid, message_str)
+        send_via_rabbit(user_from_id, user(db, user_from_id), user_to_id, message_guid, message_str, message_type)
 
         return {'status': 'Ok', 'message_guid': message_guid}
 
-    except Exception:
-        return {'status': 'Error', 'message': 'Error while sending the message. Check your parameters.'}
+    except Exception as err:
+        return {'status': 'Error', 'message': 'Error while sending the message. Check your parameters. {}'.format(err)}
 
 
 def set_has_received(db, message_guid):
