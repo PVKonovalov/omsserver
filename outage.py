@@ -39,7 +39,8 @@ def get_list(db):
     return items
 
 
-def get_customer_outage_journal(db):
+def get_customer_outage_journal(db, limit):
+
     sql = 'SELECT id,' \
           'UNIX_TIMESTAMP(time_stamp) AS timestamp,' \
           'customers,' \
@@ -52,22 +53,24 @@ def get_customer_outage_journal(db):
           'off_line_localities,' \
           'off_line_socials ' \
           'FROM customer_outage_journal ' \
-          'WHERE id = (select max(id) from customer_outage_journal)'
+          'order by id desc limit %s'
 
     cursor = db.cursor()
 
-    cursor.execute(sql)
+    cursor.execute(sql, limit)
 
-    record = cursor_to_json(cursor)
+    records = cursor_to_json(cursor)
 
-    if len(record) > 0:
-        item = record[0]
+    for item in records:
         item['off_line_customers'] = item.get('off_line_category1', 0) + item.get('off_line_category2', 0) + item.get(
             'off_line_category3', 0)
-        return item
+
+    if len(records) == 1:
+        return records[0]
+    elif len(records) > 1:
+        return records
     else:
         return []
-
 
 def calculate_for_customer_outage_journal(db):
     customers = customer.get_list(db)

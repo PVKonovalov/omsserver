@@ -54,7 +54,7 @@ from helper_session import is_login
 import gis_kml_style
 import gis_mobile
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static')
 app.secret_key = '6aa80874-8984-4d72-b82e-5e1fe2a26060'
 
 socketio = SocketIO(app, async_mode='gevent')
@@ -393,6 +393,19 @@ def message_send(key=None):
     if is_login(mysql.get_db(), session_key):
         message_json = request.get_json(force=True)
         return resp(200, message.send(mysql.get_db(), key, session_key, message_json))
+    else:
+        return resp(200, status.message(status.Code.SessionNotFound, accept_language))
+
+
+@app.route('/rsdu/oms/api/message/send_file/<int:key>/', methods=['POST'])
+@crossdomain(origin='*', headers='Session-Key')
+def message_send_file(key=None):
+    accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')
+    session_key = request.headers.get('Session-Key', type=str, default=None)
+    if is_login(mysql.get_db(), session_key):
+        message_json = request.form
+        message_file = request.files['file']
+        return resp(200, message.send_file(mysql.get_db(), key, session_key, message_json, message_file))
     else:
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
@@ -768,11 +781,11 @@ def search_in_customer():
     search = request.get_json(force=True)
     return resp(200, customer.search(mysql.get_db(), search))
 
-
 @app.route('/rsdu/oms/api/customer/outage/state/')
+@app.route('/rsdu/oms/api/customer/outage/state/<int:limit>/')
 @crossdomain(origin='*', headers='Session-Key')
-def customer_outage_journal():
-    return resp(200, outage.get_customer_outage_journal(mysql.get_db()))
+def customer_outage_journal(limit=1):
+    return resp(200, outage.get_customer_outage_journal(mysql.get_db(), limit))
 
 
 @app.route('/rsdu/oms/api/kml_style/list/')

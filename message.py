@@ -6,6 +6,7 @@
 """
 
 import uuid
+import os
 from datetime import datetime
 
 from helper_database import array_to_where_in
@@ -15,7 +16,6 @@ from helper_rabbit import send_via_rabbit
 from helper_session import get_user_id_by_session
 from helper_uuid import is_valid_uuid
 from user import user
-
 
 def get_last_messages_for_user(db, user_id=None):
     """
@@ -122,7 +122,7 @@ def get_list(db, order='none', limit=None, page=None, user_from=None, user_to=No
     if limit is not None and page is not None:
         sql_limit = ' limit {} offset {}'.format(limit, (page - 1) * limit)
 
-    sql_base = 'select BIN_TO_UUID(message.guid) AS guid, message.sentence, message_type.alias as type, has_received, time_stamp, user_from_id, ' \
+    sql_base = 'select BIN_TO_UUID(message.guid) AS guid, message.sentence as sentence, message.attachment as attachment, message_type.alias as type, has_received, time_stamp, user_from_id, ' \
                'user_from.name as user_from, user_to.name as user_to, user_to_id ' \
                'from message ' \
                'left join user as user_from on message.user_from_id = user_from.id ' \
@@ -213,7 +213,7 @@ def get_item_by_id(db, message_id):
     if message_id is None or message_id <= 0:
         return {'status': 'Error', 'message': 'Message id is not acceptable'}
 
-    sql_base = 'select BIN_TO_UUID(message.guid) as guid, message.sentence, message_type.alias as type,  has_received, time_stamp, user_from_id, ' \
+    sql_base = 'select BIN_TO_UUID(message.guid) as guid, message.sentence as sentence, message.attachment as attachment, message_type.alias as type,  has_received, time_stamp, user_from_id, ' \
                'user_from.name as user_from, user_to.name as user_to, user_to_id ' \
                'from message ' \
                'left join user as user_from on message.user_from_id = user_from.id ' \
@@ -245,7 +245,7 @@ def get_item_by_guid(db, message_guid):
     if not is_valid_uuid(message_guid):
         return {'status': 'Error', 'message': 'Message guid is not acceptable'}
 
-    sql_base = 'select BIN_TO_UUID(message.guid) as guid, message.sentence, message_type.alias as type, has_received, time_stamp, user_from_id, ' \
+    sql_base = 'select BIN_TO_UUID(message.guid) as guid, message.sentence as sentence, message.attachment as attachment,  message_type.alias as type, has_received, time_stamp, user_from_id, ' \
                'user_from.name as user_from, user_to.name as user_to, user_to_id ' \
                'from message ' \
                'left join user as user_from on message.user_from_id = user_from.id ' \
@@ -310,6 +310,54 @@ def send(db, user_to_id, session_key, message_json):
 
     except Exception as err:
         return {'status': 'Error', 'message': 'Error while sending the message. Check your parameters. {}'.format(err)}
+
+
+def send_file(db, user_to_id, session_key, message_json, message_file):
+    """
+    Insert message item
+    :param db:
+    :param user_to_id:
+    :param session_key:
+    :param message_json:
+    :return:
+    """
+    if user_to_id is None or user_to_id <= 0:
+        return {'status': 'Error', 'message': 'Originator id is not acceptable'}
+
+    message_type = item_from_json(message_json, 'type')
+
+    if message_type in ['Photo', 'Video', 'Audio']:
+        filename = item_from_json(message_json, 'filename')
+
+        if filename is None or filename == '':
+            return {'status': 'Error', 'message': 'Message is empty'}
+
+        type_id = 3
+        message_file.save(os.path.join('static/attachment/', filename))
+    else:
+        return {'status': 'Error', 'message': 'Unsupported message type \'{}\''.format(message_type)}
+
+    user_from_id = get_user_id_by_session(db, session_key)
+    if user_from_id is None or user_from_id <= 0:
+        return {'status': 'Error', 'message': 'Sender id is not acceptable'}
+
+    time_stamp = datetime.now()
+    message_guid = str(uuid.uuid4())
+
+    sql_insert = 'insert into message (guid, user_from_id, user_to_id, time_stamp, attachment, type_id) ' \
+                 'values(UUID_TO_BIN(%s),%s,%s,%s,%s,%s)'
+    cursor = db.cursor()
+    try:
+        cursor.execute(sql_insert, (message_guid, user_from_id, user_to_id, time_stamp, filename, type_id))
+        db.commit()
+
+        send_via_rabbit(user_from_id, user(db, user_from_id), user_to_id, message_guid, filename, message_type)
+
+        return {'status': 'Ok', 'message_guid': message_guid}
+
+    except Exception as err:
+        return {'status': 'Error', 'message': 'Error while sending the message. Check your parameters. {}'.format(err)}
+
 
 
 def set_has_received(db, message_guid):
