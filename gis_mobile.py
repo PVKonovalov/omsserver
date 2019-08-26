@@ -8,7 +8,8 @@
 import json
 import time
 
-from helper_database import cursor_to_json, MysqlType
+from helper_database import MysqlType
+
 
 def layer_get_list(db):
     """

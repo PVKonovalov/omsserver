@@ -59,7 +59,7 @@ def get_user_id_by_session(db, session_key):
     :return:
     """
 
-    sql = 'select user_id from user_session where session_key = %s'
+    sql = 'select user_id from user_session where session_key = %s limit 1'
     cursor = db.cursor()
     cursor.execute(sql, session_key)
     result = cursor.fetchone()

@@ -53,6 +53,7 @@ from helper_json import resp
 from helper_session import is_login
 import gis_kml_style
 import gis_mobile
+import heartbeat
 
 app = Flask(__name__, static_url_path='/static')
 app.secret_key = '6aa80874-8984-4d72-b82e-5e1fe2a26060'
@@ -194,6 +195,21 @@ def test_connect():
     #
     # if thread_car_remove is None:
     #   thread_car_remove = socketio.start_background_task(background_thread_car_remove)
+
+
+"""
+Получение статуса сервера и валидности ключа авторизации
+"""
+
+
+@app.route('/rsdu/oms/api/status/')
+@crossdomain(origin='*', headers='Session-Key')
+def api_status():
+    session_key = request.headers.get('Session-Key', type=str, default=None)
+    if is_login(mysql.get_db(), session_key):
+        return resp(200, heartbeat.status(mysql.get_db(), session_key))
+    else:
+        return resp(200, heartbeat.status(mysql.get_db(), None))
 
 
 """
@@ -506,6 +522,7 @@ def gis_layer_list():
     else:
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
+
 @app.route('/rsdu/oms/api/gis_mobile/layer/list/')
 @crossdomain(origin='*', headers='Session-Key')
 def gis_mobile_layer_list():
@@ -514,6 +531,7 @@ def gis_mobile_layer_list():
         return resp(200, gis_mobile.layer_get_list(mysql.get_db()))
     else:
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
+
 
 @app.route('/rsdu/oms/api/gis/layer/<int:key>/')
 @crossdomain(origin='*', headers='Session-Key')
@@ -780,6 +798,7 @@ def search_in_street():
 def search_in_customer():
     search = request.get_json(force=True)
     return resp(200, customer.search(mysql.get_db(), search))
+
 
 @app.route('/rsdu/oms/api/customer/outage/state/')
 @app.route('/rsdu/oms/api/customer/outage/state/<int:limit>/')
