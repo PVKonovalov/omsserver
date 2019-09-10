@@ -8,7 +8,7 @@
 import json
 import time
 
-from helper_database import MysqlType
+from helper_database import cursor_to_json
 
 
 def layer_get_list(db):
@@ -21,22 +21,26 @@ def layer_get_list(db):
     r = {}
     cursor = db.cursor()
 
-    sql = 'select id, name from gis_layer where enabled_for_mobile = 1 order by sortorder, name'
+    sql = 'select id, ' \
+          'name, ' \
+          'subgroup_id as sbgrp_id ' \
+          'from gis_layer ' \
+          'where enabled_for_mobile = 1 ' \
+          'order by sortorder, name'
+
     cursor.execute(sql)
 
-    items = []
-    for row in cursor.fetchall():
-        item = {}
-        for i, value in enumerate(row):
-            if value is not None:
-                if cursor.description[i][1] == MysqlType.JSON.value:
-                    item[cursor.description[i][0]] = json.loads(value)
-                else:
-                    item[cursor.description[i][0]] = value
-        items.append(item)
+    r['layers'] = cursor_to_json(cursor)
 
-    r['count'] = len(items)
-    r['items'] = items
-    r['elapsed'] = time.time() - start
+    sql = 'select gis_layer_subgroup.id as id, gis_layer_subgroup.name as name ' \
+          'from gis_layer_subgroup ' \
+          'where gis_layer_subgroup.id in ' \
+          '(select distinct subgroup_id from gis_layer ' \
+          'where enabled_for_mobile = 1 ) ' \
+          'order by gis_layer_subgroup.sortorder'
+
+    cursor.execute(sql)
+
+    r['sbrgp'] = cursor_to_json(cursor)
 
     return r

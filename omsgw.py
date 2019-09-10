@@ -42,11 +42,11 @@ def to_color_voltage_state(object_state_topology):
             if state == 'UnderVoltage':
                 if cache_object:
                     class_u = cache_object.get('class_u')
-
-                    if class_u == 0.4:
-                        state = 'UnderVoltage04kV'
-                    elif class_u > 1:
-                        state = 'UnderVoltage{}kV'.format(int(class_u))
+                    if class_u is not None:
+                        if class_u == 0.4:
+                            state = 'UnderVoltage04kV'
+                        elif class_u > 1:
+                            state = 'UnderVoltage{}kV'.format(int(class_u))
             # TODO: 'position' должна устанавливаться из состояния КА полученного от ОИК
             if object_type == 'OTYP_RECLOSER':
                 object_state_oms.append({'guid': item['ObjectId'], 'state': state, 'position': 'SS_PWS_ON'})

@@ -1,4 +1,4 @@
-count: 3
+count: 5
 items: 
  - type: recloser
    border: 4
@@ -15,3 +15,13 @@ items:
    figure: circle
    name: "По умолчанию"
    radius: 2
+ - type: disconnector
+   border: 2
+   figure: circle
+   name: "Разъединитель"
+   radius: 3
+ - type: short
+   border: 2
+   figure: circle
+   name: "ИКЗ"
+   radius: 5

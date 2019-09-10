@@ -8,7 +8,7 @@
 import json
 
 from helper_database import cursor_to_json
-
+from user import get_list_for_car_journal
 
 def get_list(db):
     """
@@ -65,4 +65,6 @@ def get_list(db):
                             car_locations.append(item)
             sorted(car_locations, key=lambda i: i['car_id'])
 
+    users = get_list_for_car_journal(db)
+    car_locations += users
     return car_locations

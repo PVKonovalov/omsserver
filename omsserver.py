@@ -302,17 +302,20 @@ def mobile_team_item(key=None):
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
-@app.route('/rsdu/oms/api/add_point/user/<int:key>/')
+@app.route('/rsdu/oms/api/add_point/user/', methods=['POST'])
 @crossdomain(origin='*', headers='Session-Key')
-def add_point_user(key=None):
-    accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')
-    if is_login(mysql.get_db(), request.headers.get('Session-Key', type=str, default=None)):
-        return resp(200, user_path.add_point(mysql.get_db(), key,
-                                             request.args.get('lat', type=float, default=None),
-                                             request.args.get('lng', type=float, default=None),
-                                             request.args.get('time_stamp', type=str, default=None)))
+def add_point_user():
+    session_key = request.headers.get('Session-Key', type=str, default=None)
+    coordinates = request.get_json(force=True)
+    lat = coordinates.get('lat')
+    lng = coordinates.get('lng')
+    if is_login(mysql.get_db(), session_key):
+        return resp(200, user_path.add_point(mysql.get_db(), session_key,
+                                             lat,
+                                             lng,
+                                             None))
     else:
-        return resp(200, status.message(status.Code.SessionNotFound, accept_language))
+        return resp(200, 'Session not found')
 
 
 @app.route('/rsdu/oms/api/get_last_point/user/<int:key>/')
@@ -325,7 +328,7 @@ def get_last_point(key=None):
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
-@app.route('/rsdu/oms/api/get_last_points/')
+@app.route('/rsdu/oms/api/user/last_locations/')
 @crossdomain(origin='*', headers='Session-Key')
 def get_last_points():
     accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')

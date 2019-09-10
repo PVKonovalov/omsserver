@@ -5,8 +5,8 @@
     Created on 2019-06-07
 """
 
-import omsgw
 from helper_database import cursor_to_json
+import omsgw
 
 
 def get_list(db, customer_id=None):
