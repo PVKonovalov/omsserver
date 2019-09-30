@@ -6,15 +6,34 @@
 """
 
 import json
-
 import flask
+
+from decimal import Decimal
+
+
+class FakeFloat(float):
+    def __init__(self, value):
+        super().__init__()
+        self._value = value
+
+    def __repr__(self):
+        return str(self._value)
+
+
+def decimalencode(o):
+    if isinstance(o, Decimal):
+        # Subclass float with custom repr?
+        return FakeFloat(o)
+    else:
+        return str(o)
 
 
 def resp(code, data, resp_charset='utf-8'):
     return flask.Response(
         status=code,
         mimetype='application/json; charset=' + resp_charset,
-        response=json.dumps(data, indent=4, sort_keys=True, default=str, ensure_ascii=False).encode(resp_charset)
+        response=json.dumps(data, indent=4, sort_keys=True, default=decimalencode, ensure_ascii=False).encode(
+            resp_charset)
     )
 
 

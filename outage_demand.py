@@ -5,9 +5,9 @@
     Created on 2019-06-13
 """
 
-import customer
 from helper_database import cursor_to_json
 from helper_json import item_from_json
+import customer
 
 
 def get_list(db, order='timestamp-asc', limit=50, page=1):

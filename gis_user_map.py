@@ -6,11 +6,10 @@
 """
 import json
 
+from helper_session import get_user_id_by_session
 from flask import current_app as app
-
 from helper_database import MysqlType
 from helper_json import item_from_json
-from helper_session import get_user_id_by_session
 
 
 def get_list(db, session_key):

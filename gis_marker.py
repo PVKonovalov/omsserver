@@ -7,7 +7,6 @@
 
 from helper_database import cursor_to_json
 
-
 def get_list(db):
     """
     Return list of current map markers
@@ -34,3 +33,6 @@ def get_list(db):
             item['icon'] = '/static/marker/' + item['icon']
 
     return items
+
+
+

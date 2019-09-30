@@ -1,145 +1,1 @@
-"""
-    omsserver outage.py
-    :copyright: (c) 2019 by Pavel Konovalov
-    pasha@nettlecom.com
-    Created on 2019-06-13
-"""
-
-import customer
-from helper_database import cursor_to_json
-
-
-def get_list(db):
-    """
-    Return list of current map markers
-    :param db:
-    :return:
-    """
-    sql = 'SELECT BIN_TO_UUID(car.guid) as guid, ' \
-          'car.name AS name, ' \
-          'car_type.icon AS icon, ' \
-          'car_type.name AS type_name,' \
-          'car.car_id AS car_id, ' \
-          'car.wialon_id AS wialon_id, ' \
-          'car.phone as phone ' \
-          'FROM car ' \
-          'LEFT JOIN car_type ON car.car_type_id = car_type.id ' \
-          'WHERE car.enabled = 1 order by car.car_id'
-
-    cursor = db.cursor()
-
-    cursor.execute(sql)
-
-    items = cursor_to_json(cursor)
-
-    for item in items:
-        if 'icon' in item:
-            item['icon'] = '/static/cars/' + item['icon']
-
-    return items
-
-
-def get_customer_outage_journal(db, limit):
-
-    sql = 'SELECT id,' \
-          'UNIX_TIMESTAMP(time_stamp) AS timestamp,' \
-          'customers,' \
-          'shortage,' \
-          'off_line_category1,' \
-          'off_line_category2,' \
-          'off_line_category3,' \
-          'localities,' \
-          'socials,' \
-          'off_line_localities,' \
-          'off_line_socials ' \
-          'FROM customer_outage_journal ' \
-          'order by id desc limit %s'
-
-    cursor = db.cursor()
-
-    cursor.execute(sql, limit)
-
-    records = cursor_to_json(cursor)
-
-    for item in records:
-        item['off_line_customers'] = item.get('off_line_category1', 0) + item.get('off_line_category2', 0) + item.get(
-            'off_line_category3', 0)
-
-    if len(records) == 1:
-        return records[0]
-    elif len(records) > 1:
-        return records
-    else:
-        return []
-
-def calculate_for_customer_outage_journal(db):
-    customers = customer.get_list(db)
-
-    customers_num = 0
-    shortage = 0
-    off_line_category1 = 0
-    off_line_category2 = 0
-    off_line_category3 = 0
-    socials = 0
-    off_line_socials = 0
-
-    localities_gist = {}
-    off_line_localities_gist = {}
-
-    for item in customers:
-        locality_id = item.get('locality_id')
-        amount = item.get('amount', 1)
-
-        if locality_id and locality_id > 0:
-            localities_gist[locality_id] = 1
-
-        is_social = item.get('is_social')
-        if is_social and is_social == 1:
-            socials += amount
-
-        usage_points = item.get('usage_point')
-        if usage_points:
-            for usage_point in usage_points:
-                customers_num += amount
-                state = usage_point.get('state')
-                if state is not None and state != 'UnderVoltage':
-                    shortage_item = usage_point.get('power')
-
-                    if is_social and is_social == 1:
-                        off_line_socials += amount
-
-                    if shortage_item and shortage_item > 0:
-                        shortage += shortage_item
-
-                    if locality_id and locality_id > 0:
-                        off_line_localities_gist[locality_id] = 1
-
-                    category_item = usage_point.get('category_id')
-                    if category_item:
-                        if category_item == 1:
-                            off_line_category1 += amount
-                        elif category_item == 2:
-                            off_line_category2 += amount
-                        elif category_item == 3:
-                            off_line_category3 += amount
-
-    localities = len(localities_gist)
-    off_line_localities = len(off_line_localities_gist)
-
-    sql = 'INSERT INTO customer_outage_journal ' \
-          '(customers, shortage, off_line_category1, off_line_category2, off_line_category3, localities, socials, ' \
-          'off_line_localities, off_line_socials) ' \
-          'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
-
-    cursor = db.cursor()
-
-    try:
-        cursor.execute(sql, (
-            customers_num, shortage, off_line_category1, off_line_category2, off_line_category3, localities, socials,
-            off_line_localities, off_line_socials))
-        db.commit()
-
-        return cursor.lastrowid
-
-    except Exception as e:
-        return None
+"""    omsserver outage.py    :copyright: (c) 2019 by Pavel Konovalov    pasha@nettlecom.com    Created on 2019-06-13"""import customerimport datetimeimport decimalfrom helper_database import cursor_to_jsondef get_list(db):    """    Return list of current map markers    :param db:    :return:    """    sql = 'SELECT BIN_TO_UUID(car.guid) as guid, ' \          'car.name AS name, ' \          'car_type.icon AS icon, ' \          'car_type.name AS type_name,' \          'car.car_id AS car_id, ' \          'car.wialon_id AS wialon_id, ' \          'car.phone as phone ' \          'FROM car ' \          'LEFT JOIN car_type ON car.car_type_id = car_type.id ' \          'WHERE car.enabled = 1 order by car.car_id'    cursor = db.cursor()    cursor.execute(sql)    items = cursor_to_json(cursor)    for item in items:        if 'icon' in item:            item['icon'] = '/static/cars/' + item['icon']    return itemsdef get_customer_outage_journal(db, limit):    sql = 'SELECT id,' \          'UNIX_TIMESTAMP(time_stamp) AS timestamp,' \          'customers,' \          'shortage,' \          'off_line_category1,' \          'off_line_category2,' \          'off_line_category3,' \          'localities,' \          'socials,' \          'off_line_localities,' \          'off_line_socials ' \          'FROM customer_outage_journal ' \          'order by id desc limit %s'    cursor = db.cursor()    cursor.execute(sql, limit)    records = cursor_to_json(cursor)    for item in records:        item['off_line_customers'] = item.get('off_line_category1', 0) + item.get('off_line_category2', 0) + item.get(            'off_line_category3', 0)    if len(records) == 1:        return records[0]    elif len(records) > 1:        return records    else:        return []def calculate_for_customer_outage_journal(db):    """    Расчет состояния отключенных потребителей.    Вызывается при изменении в топологии сети.    :param db:    :return:    """    customers = customer.get_list(db)    customers_num = 0    shortage = 0    off_line_category1 = 0    off_line_category2 = 0    off_line_category3 = 0    social_objects = 0    off_line_socials = 0    localities_histogram = {}    off_line_localities_histogram = {}    for item in customers:        locality_id = item.get('locality_id')        amount = item.get('amount', 1)        if locality_id and locality_id > 0:            localities_histogram[locality_id] = 1        is_social = item.get('is_social')        if is_social and is_social == 1:            social_objects += amount        usage_points = item.get('usage_point')        if usage_points:            for usage_point in usage_points:                customers_num += amount                state = usage_point.get('state')                if state is not None and state != 'UnderVoltage':                    shortage_item = usage_point.get('power')                    if is_social and is_social == 1:                        off_line_socials += amount                    if shortage_item and shortage_item > 0:                        shortage += shortage_item                    if locality_id and locality_id > 0:                        off_line_localities_histogram[locality_id] = 1                    category_item = usage_point.get('category_id')                    if category_item:                        if category_item == 1:                            off_line_category1 += amount                        elif category_item == 2:                            off_line_category2 += amount                        elif category_item == 3:                            off_line_category3 += amount    localities = len(localities_histogram)    off_line_localities = len(off_line_localities_histogram)    sql = 'INSERT INTO customer_outage_journal ' \          '(customers, shortage, off_line_category1, off_line_category2, off_line_category3, localities, socials, ' \          'off_line_localities, off_line_socials) ' \          'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'    cursor = db.cursor()    try:        cursor.execute(sql, (            customers_num, shortage, off_line_category1, off_line_category2, off_line_category3, localities,            social_objects,            off_line_localities, off_line_socials))        db.commit()        return cursor.lastrowid    except Exception as e:        return Nonedef get_utilities(db, date_from: datetime = None, date_to: datetime = None):    decimal.getcontext().prec = 3    today = datetime.date.today()    if date_from is None:        date_from = datetime.date(today.year, 1, 1)    if date_to is None:        date_to = today    sql = 'SELECT id, UNIX_TIMESTAMP(time_stamp) as timestamp, ' \          'customers, off_line_category1 + off_line_category2 + off_line_category3 AS off_line_customers ' \          'FROM customer_outage_journal ' \          'WHERE ' \          'time_stamp BETWEEN %s AND %s ' \          'ORDER BY id'    cursor = db.cursor()    cursor.execute(sql, ('{0:%Y-%m-%d 00:00:00}'.format(date_from), '{0:%Y-%m-%d 23:59:59}'.format(date_to)))    records = cursor_to_json(cursor)    # Общее количество обслуживаемых потребителей    customer_served = 0    # Общее количество потребителей с перерывами в подаче э-энергии    customer_interruptions = 0    # Общее количество перерывов в подачи э-энергии    interruptions = 0    sum_outage_time = 0    prev_off_line_customers = 0    begin_interruption_timestamp = 0    max_off_line_customers = 0    is_interruption = False    for event in records:        off_line_customers = event['off_line_customers']        if event['customers'] > customer_served:            customer_served = event['customers']        if prev_off_line_customers != off_line_customers:            if off_line_customers == 0:                is_interruption = False                # Завершение отключения потребителей                customer_interruptions += max_off_line_customers                outage_time = (event['timestamp'] - begin_interruption_timestamp) / 3600                sum_outage_time += outage_time * max_off_line_customers                max_off_line_customers = 0            else:                if is_interruption is False:                    # Начало отключения потребителей                    begin_interruption_timestamp = event['timestamp']                    is_interruption = True                if off_line_customers > max_off_line_customers:                    max_off_line_customers = off_line_customers                interruptions += 1            prev_off_line_customers = off_line_customers    return {'date_from': '{0:%Y-%m-%d 00:00:00}'.format(date_from),            'date_to': '{0:%Y-%m-%d 23:59:59}'.format(date_to),            'customer_served': customer_served,            'customer_interruptions': customer_interruptions,            'interruptions': interruptions,            'sum_outage_time': sum_outage_time,            'saifi': decimal.Decimal(customer_interruptions) / decimal.Decimal(customer_served),            'saidi': sum_outage_time / customer_served            }

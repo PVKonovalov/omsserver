@@ -9,7 +9,7 @@ import json
 import time
 
 from helper_database import cursor_to_json, MysqlType
-
+from time import sleep
 
 def layer_group_get_list(db):
     """
@@ -104,6 +104,7 @@ def map_provider_get_list(db):
 
     return r
 
+
 def layer_get_list(db):
     """
     Return the list of enabled layers
@@ -164,4 +165,25 @@ def layer_get_item(db, layer_id):
     return item
 
 
+def get_extra_state(db, guid):
 
+    ei = {'Потребителей': '30',
+          'Установленная мощность': '50кВт',
+          'Первой категории': '20',
+          'Центр питания': 'ПС Валдай',
+          'Отключено': '30',
+          'Идентификатор': guid
+          }
+
+    return ei
+
+
+def get_legend():
+    ei = [{'col1': '/static/image/red_round.png', 'col2': 'Реклоузер'},
+          {'col1': '/static/image/yellow_round.png', 'col2': 'Разъединитель'},
+          {'col1': '/static/image/green_round.png', 'col2': 'ИКЗ'},
+          {'col1': '/static/image/red_round.png', 'col2': 'ТП'},
+          {'col1': '/static/image/yellow_round.png', 'col2': 'Линия 110 кВ'},
+          {'col1': '/static/image/green_round.png', 'col2': 'Линия 10 кВ'}]
+
+    return ei

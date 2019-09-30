@@ -1,15 +1,17 @@
 count: 5
 items: 
  - type: recloser
-   border: 4
+   border: 2
    figure: circle
    name: "Реклоузер"
-   radius: 10
+   radius: 12
+   text: "В"
  - type: ss_trans
-   border: 6
-   figure: circle
+   border: 1
+   figure: square
    name: "Трансформаторная подстанция"
-   radius: 15
+   text: "ТП"
+   radius: 8
  - type: default
    border: 1
    figure: circle
@@ -19,9 +21,11 @@ items:
    border: 2
    figure: circle
    name: "Разъединитель"
-   radius: 3
+   text: "Р"
+   radius: 10
  - type: short
    border: 2
    figure: circle
    name: "ИКЗ"
-   radius: 5
+   radius: 10
+   text: "⚡"

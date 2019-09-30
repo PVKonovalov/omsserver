@@ -3,20 +3,6 @@
     :copyright: (c) 2018 by Pavel Konovalov
     pasha@nettlecom.com
     Created on 02.07.2018
-
-    @startuml
-    RMQ -> oms_gw_rmq_toplopogy: rsdu.scada.topology.NETWORK_STATE_UPDATE
-    oms_gw_rmq_toplopogy -> omsserver: http://<omsserver>/rsdu/oms/api/omsgw/topochanged
-    activate omsserver
-    omsserver -> omsserver: omsgw.topology_changed
-    omsserver -> SCADA: /rsdu/scada/api/app/topology/raw/network/state
-    activate SCADA
-    SCADA -> omsserver: JSON ...{}
-    deactivate SCADA
-    deactivate omsserver
-    omsserver -> oms_gw_rmq_toplopogy: {Status: Ok|Error}
-    @enduml
-
 """
 import random
 import time
@@ -814,6 +800,26 @@ def customer_outage_journal(limit=1):
 @crossdomain(origin='*', headers='Session-Key')
 def kml_stile_list():
     return resp(200, gis_kml_style.get_list())
+
+
+@app.route('/rsdu/oms/api/gis/legend/')
+def gis_get_legend():
+    return resp(200, gis.get_legend())
+
+
+@app.route('/rsdu/oms/api/outage/utilites/')
+def outage_get_utilities():
+    return resp(200, outage.get_utilities(mysql.get_db()))
+
+
+@app.route('/rsdu/oms/api/gis/object/extra_state/<string:guid>/')
+@crossdomain(origin='*', headers='Session-Key')
+def extra_state(guid=None):
+    accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')
+    if is_login(mysql.get_db(), request.headers.get('Session-Key', type=str, default=None)):
+        return resp(200, gis.get_extra_state(mysql.get_db(), guid))
+    else:
+        return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
 if __name__ == '__main__':

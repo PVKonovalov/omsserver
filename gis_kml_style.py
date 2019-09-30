@@ -12,7 +12,7 @@ def get_list():
     Возвращает JSON описание стилей KML объектов из файла gis_style.yaml
     :return:
     """
-    stream = open('gis_kml_style.yaml', 'r')
+    stream = open('gis_kml_style.yaml', 'r', encoding='utf8')
 
     if stream:
         gis_style = yaml.load(stream, Loader=yaml.SafeLoader)
