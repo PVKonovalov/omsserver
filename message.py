@@ -17,6 +17,7 @@ from helper_session import get_user_id_by_session
 from helper_uuid import is_valid_uuid
 from user import user
 
+
 def get_last_messages_for_user(db, user_id=None):
     """
     Return last messages for selected user
@@ -267,6 +268,67 @@ def get_item_by_guid(db, message_guid):
     return item[0]
 
 
+def send_via_email(db, emails, message_str, user_from_id):
+    print('send via email', emails)
+    return
+
+
+def send_via_sms(db, phones, message_str, user_from_id):
+    print('send via sms', phones)
+    return
+
+
+def send_with_template(db, template_id, message_str, user_from_id, time_stamp, message_guid):
+    """
+    Отправка сообщения с помощью шаблона
+    :param db:
+    :param template_id:
+    :param message_str:
+    :param user_from_id:
+    :param time_stamp:
+    :param message_guid:
+    :return:
+    """
+    sql = 'select user.name as user, ' \
+          'user.phone as phone, ' \
+          'user.email as email, ' \
+          'user.id as user_id, ' \
+          'template_user.sms as send_sms, ' \
+          'template_user.email as send_email ' \
+          'from template_user ' \
+          'left join user on template_user.user_id = user.id ' \
+          'where ' \
+          'template_user.template_id = %s'
+
+    cursor = db.cursor()
+    cursor.execute(sql, template_id)
+    destinations = cursor_to_json(cursor)
+
+    emails = []
+    phones = []
+
+    for destination in destinations:
+        phone = destination.get('phone')
+        email = destination.get('email')
+        send_sms = destination.get('send_sms')
+        send_email = destination.get('send_email')
+
+        if send_email is not None and email is not None:
+            emails.append(email)
+
+        if send_sms is not None and phone is not None:
+            phones.append(phone)
+
+    if len(emails) != 0:
+        send_via_email(db, emails, message_str)
+
+    if len(phones) != 0:
+        send_via_sms(db, phones, message_str)
+
+    return {'status': 'Ok'}
+
+
+
 def send(db, user_to_id, session_key, message_json):
     """
     Insert message item
@@ -276,10 +338,15 @@ def send(db, user_to_id, session_key, message_json):
     :param message_json:
     :return:
     """
-    if user_to_id is None or user_to_id <= 0:
-        return {'status': 'Error', 'message': 'Originator id is not acceptable'}
 
-    message_type = item_from_json(message_json, 'type')
+    template = item_from_json(message_json, 'template')
+    message_type = 'Text'
+
+    if template is None:
+        if user_to_id is None or user_to_id <= 0:
+            return {'status': 'Error', 'message': 'Originator id is not acceptable'}
+
+        message_type = item_from_json(message_json, 'type')
 
     if message_type == 'Text':
         message_str = item_from_json(message_json, 'message')
@@ -296,6 +363,9 @@ def send(db, user_to_id, session_key, message_json):
 
     time_stamp = datetime.now()
     message_guid = str(uuid.uuid4())
+
+    if template > 0:
+        return send_with_template(db, template, message_str, user_from_id, time_stamp, message_guid)
 
     sql_insert = 'insert into message (guid, user_from_id,user_to_id,time_stamp,sentence,type_id) ' \
                  'values(UUID_TO_BIN(%s),%s,%s,%s,%s,%s)'
@@ -359,7 +429,6 @@ def send_file(db, user_to_id, session_key, message_json, message_file):
         return {'status': 'Error', 'message': 'Error while sending the message. Check your parameters. {}'.format(err)}
 
 
-
 def set_has_received(db, message_guid):
     """
     Set message received status as True
@@ -401,3 +470,38 @@ def delete_item(db, message_guid):
     except Exception:
         return {'status': 'Error',
                 'message': 'Error while delete the message {}. Check your parameters.'.format(message_guid)}
+
+
+def get_template_list(db):
+    """
+    Возвращает список шаблонов для сообщений
+    :param db:
+    :return:
+    """
+    sql = 'SELECT template.id as id, ' \
+          'template.name as name,' \
+          'template.template as template ' \
+          'FROM template ' \
+          'ORDER BY template.name'
+
+    cursor = db.cursor()
+
+    cursor.execute(sql)
+
+    templates = cursor_to_json(cursor)
+
+    sql = 'select user.name as user, ' \
+          'user.id as user_id, ' \
+          'template_user.sms as sms, ' \
+          'template_user.email as email ' \
+          'from template_user ' \
+          'left join user on template_user.user_id = user.id ' \
+          'where ' \
+          'template_user.template_id = %s'
+
+    for template in templates:
+        cursor.execute(sql, template['id'])
+        users = cursor_to_json(cursor)
+        template['users'] = users
+
+    return templates

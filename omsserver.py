@@ -340,6 +340,17 @@ def message_list():
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
+
+@app.route('/rsdu/oms/api/message/template/list/')
+@crossdomain(origin='*', headers='Session-Key')
+def message_template_list():
+    accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')
+    if is_login(mysql.get_db(), request.headers.get('Session-Key', type=str, default=None)):
+        return resp(200, message.get_template_list(mysql.get_db()))
+    else:
+        return resp(200, status.message(status.Code.SessionNotFound, accept_language))
+
+
 @app.route('/rsdu/oms/api/message/conversation/')
 @crossdomain(origin='*', headers='Session-Key')
 def message_conversation():
@@ -390,6 +401,7 @@ def message_delete(key=None):
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
+@app.route('/rsdu/oms/api/message/send/', methods=['POST'])
 @app.route('/rsdu/oms/api/message/send/<int:key>/', methods=['POST'])
 @crossdomain(origin='*', headers='Session-Key')
 def message_send(key=None):
