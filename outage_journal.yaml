@@ -1,0 +1,50 @@
+- number: 1
+  branch: Валдайский РЭС
+  object_type: ВЛ
+  equipment: В-35 Т-1
+  class_u: 35
+  interrupt_begin: 10:25 2019.10.04
+  interrupt_end: 10:34 2019.10.04
+  interrupt_type: Авария
+  interrupt_duration: '00:09'
+  equipment_disconnection:
+  - ПС Валдай
+  - Л-1 ПС Валдай
+  full_interrupt_customer_1_2:
+  - Школа №2
+  part_interrupt_customer_1_2:
+  - Школа №2
+  interrupt_customer_1: 1
+  interrupt_customer_2: 0
+  interrupt_customer_3: 0
+  interrupt_customer_hv: 1
+  interrupt_customer_mv1: 0
+  interrupt_customer_mv2: 0
+  interrupt_customer_lv: 1
+  interrupt_customer_other: 0
+  shortage: 2.4
+- number: 2
+  branch: Валдайский РЭС
+  object_type: ВЛ
+  equipment: В-35 Т-1
+  class_u: 35
+  interrupt_begin: 11:22 2019.10.04
+  interrupt_end: 11:28 2019.10.04
+  interrupt_type: Авария
+  interrupt_duration: '00:06'
+  equipment_disconnection:
+  - ПС Валдай
+  - Л-1 ПС Валдай
+  full_interrupt_customer_1_2:
+  - Школа №2
+  part_interrupt_customer_1_2:
+  - Школа №2
+  interrupt_customer_1: 1
+  interrupt_customer_2: 0
+  interrupt_customer_3: 0
+  interrupt_customer_hv: 1
+  interrupt_customer_mv1: 0
+  interrupt_customer_mv2: 0
+  interrupt_customer_lv: 1
+  interrupt_customer_other: 0
+  shortage: 2.4

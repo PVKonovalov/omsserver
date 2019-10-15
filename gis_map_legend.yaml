@@ -1,0 +1,33 @@
+-
+    col1: "/static/image/recloser.png"
+    col2: "Реклоузер"
+-
+    col1: "/static/image/disconnector.png"
+    col2: "Разъединитель"
+-
+    col1: "/static/image/short.png"
+    col2: "ИКЗ"
+-
+    col1: "/static/image/s_trans.png"
+    col2: "КТП"
+-
+    col1: "/static/image/isolated.png"
+    col2: "Изолировано"
+-
+    col1: "/static/image/grounded.png"
+    col2: "Заземлено"
+-
+    col1: "/static/image/under_voltage_04.png"
+    col2: "Под напряжением 0.4 кВ"
+-
+    col1: "/static/image/under_voltage_6.png"
+    col2: "Под напряжением 6 кВ"
+-
+    col1: "/static/image/under_voltage_10.png"
+    col2: "Под напряжением 10 кВ"
+-
+    col1: "/static/image/under_voltage_35.png"
+    col2: "Под напряжением 35 кВ"
+-
+    col1: "/static/image/under_voltage_110.png"
+    col2: "Под напряжением 110 кВ"
