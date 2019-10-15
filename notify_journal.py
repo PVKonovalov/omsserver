@@ -47,4 +47,3 @@ def insert(db, guid, equipment_guid, equipment_name, notify, object_guid, object
 
     except Exception:
         return
-

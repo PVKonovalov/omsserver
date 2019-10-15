@@ -37,9 +37,11 @@ import user_path
 from helper_crossdomain import crossdomain
 from helper_json import resp
 from helper_session import is_login
-import gis_kml_style
+import gis_yaml
 import gis_mobile
 import heartbeat
+import filecabinet
+import outage_journal
 
 app = Flask(__name__, static_url_path='/static')
 app.secret_key = '6aa80874-8984-4d72-b82e-5e1fe2a26060'
@@ -80,6 +82,11 @@ def thread_state_changed(socketio_emit, notify_json):
         socketio_emit('state-changed', notify_json)
 
 
+def thread_marker_set_on_object(socketio_emit, notify_json):
+    if notify_json:
+        socketio_emit('marker-set-on-object', notify_json)
+
+
 def background_thread_state_changed():
     styles = ['Undefined', 'UnderVoltage', 'Isolated', 'PartiallyGrounded', 'Grounded', 'Failure', 'Damaged',
               'Selected', 'UnderVoltage10kV', 'UnderVoltage6kV', 'UnderVoltage04kV']
@@ -116,6 +123,19 @@ def background_thread_marker_set():
             "timestamp": int(time.time())
         }]
         emit_event('marker-set', emit_json)
+
+
+def background_thread_marker_with_object_set():
+    socketio.sleep(15)
+    guid = str(uuid.uuid4())
+    emit_json = [{
+        "guid": guid,
+        "icon": "/static/marker/marker-Zvonok-076420.png",
+        "guid_object": "091dd3ca-94f4-11e9-92cb-000c29a39976",
+        "name": "Звонок № 222",
+        "timestamp": int(time.time())
+    }]
+    emit_event('marker-set-on-object', emit_json)
 
 
 def background_thread_marker_remove():
@@ -157,6 +177,8 @@ def background_thread_car_remove():
 def test_connect():
     global thread_state_changed_bg
     global thread_car_set
+    global thread_marker_set
+
     # global thread_state_changed
     #     global thread_notify
     #     global thread_marker_set
@@ -172,6 +194,8 @@ def test_connect():
     #         # if thread_marker_remove is None:
     #         #    thread_marker_remove = socketio.start_background_task(background_thread_marker_remove)
 
+    # socketio.start_background_task(background_thread_marker_with_object_set)
+
     if thread_car_set is None:
         thread_car_set = socketio.start_background_task(background_thread_car_set)
 
@@ -183,9 +207,53 @@ def test_connect():
     #   thread_car_remove = socketio.start_background_task(background_thread_car_remove)
 
 
-"""
-Получение статуса сервера и валидности ключа авторизации
-"""
+""" Notifications callbacks from OMS gateway """
+""" Уведомление об изменении топологии """
+
+
+@app.route('/rsdu/oms/api/omsgw/topochanged', methods=['POST'])
+@crossdomain(origin='*', headers='Session-Key')
+def topology_changed():
+    r = omsgw.topology_changed(mysql.get_db(), request.get_json(force=True))
+
+    notify_json = r.get('data')
+    if notify_json is not None:
+        socketio_thread = Thread(target=thread_state_changed, args=(socketio.emit, notify_json))
+        socketio_thread.daemon = True
+        socketio_thread.start()
+
+    return resp(200, {'status': r['status'], 'state_changed': r.get('state_changed', 0)})
+
+
+""" Уведомление о приходе сигнала о коммутации """
+
+
+@app.route('/rsdu/oms/api/omsgw/signal', methods=['POST'])
+@crossdomain(origin='*', headers='Session-Key')
+def signal_arrived():
+    notify_json = omsgw.signal_arrived(mysql.get_db(), request.get_json(force=True))
+
+    socketio_thread = Thread(target=thread_signal, args=(socketio.emit, notify_json))
+    socketio_thread.daemon = True
+    socketio_thread.start()
+
+    return resp(200, 'OK')
+
+
+""" Уведомление об установки маркера на объект на карте """
+
+
+@app.route('/rsdu/oms/api/omsgw/marker/set/', methods=['POST'])
+@crossdomain(origin='*', headers='Session-Key')
+def marker_set_on_object():
+    socketio_thread = Thread(target=thread_marker_set_on_object, args=(socketio.emit, request.get_json(force=True)))
+    socketio_thread.daemon = True
+    socketio_thread.start()
+
+    return resp(200, 'OK')
+
+
+""" Получение статуса сервера и валидности ключа авторизации """
 
 
 @app.route('/rsdu/oms/api/status/')
@@ -198,9 +266,7 @@ def api_status():
         return resp(200, heartbeat.status(mysql.get_db(), None))
 
 
-"""
-Регистрация нового сеанса пользователя OMS. Возвращается сессионный ключ и описание пользователя.
-"""
+""" Регистрация нового сеанса пользователя OMS. Возвращается сессионный ключ и описание пользователя """
 
 
 @app.route('/rsdu/oms/api/user/login/', methods=['POST'])
@@ -213,9 +279,7 @@ def user_login():
     return resp(200, user.login(mysql.get_db(), login, password, request.remote_addr))
 
 
-"""
-Закрытие сеанса пользователя OMS.
-"""
+""" Закрытие сеанса пользователя OMS """
 
 
 @app.route('/rsdu/oms/api/user/logout/')
@@ -230,9 +294,7 @@ def user_logout():
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
-"""
-Получить список пользователей OMS.
-"""
+""" Получить список пользователей OMS  """
 
 
 @app.route('/rsdu/oms/api/user/list/')
@@ -248,9 +310,7 @@ def user_list():
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
-"""
-Получить описание текущего (заданног) пользователя OMS.
-"""
+""" Получить описание текущего (или заданного) пользователя OMS """
 
 
 @app.route('/rsdu/oms/api/user/')
@@ -263,6 +323,9 @@ def user_item(key=None):
         return resp(200, user.get_item(mysql.get_db(), session_key, key))
     else:
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
+
+
+""" Получить список мобильных блигад """
 
 
 @app.route('/rsdu/oms/api/mobile_team/list/')
@@ -340,7 +403,6 @@ def message_list():
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
-
 @app.route('/rsdu/oms/api/message/template/list/')
 @crossdomain(origin='*', headers='Session-Key')
 def message_template_list():
@@ -390,6 +452,18 @@ def get_last_messages():
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
+@app.route('/rsdu/oms/api/message/list_for_messenger/')
+@crossdomain(origin='*', headers='Session-Key')
+def get_list_for_messenger():
+    accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')
+    session_key = request.headers.get('Session-Key', type=str, default=None)
+    if is_login(mysql.get_db(), request.headers.get('Session-Key', type=str, default=None)):
+        return resp(200, message.get_list_for_messenger(mysql.get_db(),
+                                                        session_key))
+    else:
+        return resp(200, status.message(status.Code.SessionNotFound, accept_language))
+
+
 @app.route('/rsdu/oms/api/message/delete/<int:key>/', methods=['GET'])
 @crossdomain(origin='*', headers='Session-Key')
 def message_delete(key=None):
@@ -397,6 +471,18 @@ def message_delete(key=None):
     session_key = request.headers.get('Session-Key', type=str, default=None)
     if is_login(mysql.get_db(), session_key):
         return resp(200, message.delete_item(mysql.get_db(), key))
+    else:
+        return resp(200, status.message(status.Code.SessionNotFound, accept_language))
+
+
+@app.route('/rsdu/oms/api/filecabinet/list/', methods=['GET'])
+@app.route('/rsdu/oms/api/filecabinet/list/<int:parent_id>/', methods=['GET'])
+@crossdomain(origin='*', headers='Session-Key')
+def filecabinet_list(parent_id=None):
+    accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')
+    session_key = request.headers.get('Session-Key', type=str, default=None)
+    if is_login(mysql.get_db(), session_key):
+        return resp(200, filecabinet.get_list(mysql.get_db(), parent_id))
     else:
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
@@ -698,35 +784,6 @@ def gis_get_marker_list():
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
-# Notifications callbacks from OMS gateway
-# Уведомление об изменении топологии
-@app.route('/rsdu/oms/api/omsgw/topochanged', methods=['POST'])
-@crossdomain(origin='*', headers='Session-Key')
-def topology_changed():
-    r = omsgw.topology_changed(mysql.get_db(), request.get_json(force=True))
-
-    notify_json = r.get('data')
-    if notify_json is not None:
-        socketio_thread = Thread(target=thread_state_changed, args=(socketio.emit, notify_json))
-        socketio_thread.daemon = True
-        socketio_thread.start()
-
-    return resp(200, {'status': r['status'], 'state_changed': r.get('state_changed', 0)})
-
-
-# Уведомление о приходе сигнала о коммутации
-@app.route('/rsdu/oms/api/omsgw/signal', methods=['POST'])
-@crossdomain(origin='*', headers='Session-Key')
-def signal_arrived():
-    notify_json = omsgw.signal_arrived(mysql.get_db(), request.get_json(force=True))
-
-    socketio_thread = Thread(target=thread_signal, args=(socketio.emit, notify_json))
-    socketio_thread.daemon = True
-    socketio_thread.start()
-
-    return resp(200, 'OK')
-
-
 @app.route('/rsdu/oms/api/outage/demand/state/list/')
 @crossdomain(origin='*', headers='Session-Key')
 def outage_demand_state_list():
@@ -774,6 +831,12 @@ def outage_demand_update(key=None):
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 
 
+@app.route('/rsdu/oms/api/customer/<string:guid>', methods=['GET'])
+@crossdomain(origin='*', headers='Session-Key')
+def customer_by_guid(guid=None):
+    return resp(200, customer.get_with_guid(mysql.get_db(), guid))
+
+
 @app.route('/rsdu/oms/api/customer/list/')
 @crossdomain(origin='*', headers='Session-Key')
 def customer_list():
@@ -791,7 +854,7 @@ def search_in_locality():
 @crossdomain(origin='*', headers='Session-Key')
 def search_in_street():
     search = request.get_json(force=True)
-    return resp(200, customer.search_in_street(mysql.get_db(), search))
+    return resp(200, customer.search_in_complex_address(mysql.get_db(), search))
 
 
 @app.route('/rsdu/oms/api/customer/search/', methods=['POST'])
@@ -808,15 +871,28 @@ def customer_outage_journal(limit=1):
     return resp(200, outage.get_customer_outage_journal(mysql.get_db(), limit))
 
 
+@app.route('/rsdu/oms/api/customer/outage/state/current/')
+@crossdomain(origin='*', headers='Session-Key')
+def customer_outage_journal_current():
+    return resp(200, outage.get_customer_outage_current(mysql.get_db()))
+
+
+@app.route('/rsdu/oms/api/customer/outage/state_with_utilites/')
+@app.route('/rsdu/oms/api/customer/outage/state_with_utilites/<int:limit>/')
+@crossdomain(origin='*', headers='Session-Key')
+def customer_outage_journal_with_utilities(limit=1):
+    return resp(200, outage.get_customer_outage_journal_with_utilities(mysql.get_db(), limit))
+
+
 @app.route('/rsdu/oms/api/kml_style/list/')
 @crossdomain(origin='*', headers='Session-Key')
 def kml_stile_list():
-    return resp(200, gis_kml_style.get_list())
+    return resp(200, gis_yaml.get_kml_style())
 
 
 @app.route('/rsdu/oms/api/gis/legend/')
 def gis_get_legend():
-    return resp(200, gis.get_legend())
+    return resp(200, gis_yaml.get_map_legend())
 
 
 @app.route('/rsdu/oms/api/outage/utilites/')
@@ -829,7 +905,29 @@ def outage_get_utilities():
 def extra_state(guid=None):
     accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')
     if is_login(mysql.get_db(), request.headers.get('Session-Key', type=str, default=None)):
-        return resp(200, gis.get_extra_state(mysql.get_db(), guid))
+        return resp(200,
+                    gis_yaml.get_extra_state(mysql.get_db(), guid, request.args.get('layer', type=int, default=None)))
+    else:
+        return resp(200, status.message(status.Code.SessionNotFound, accept_language))
+
+
+@app.route('/rsdu/oms/api/customer/power_center/<string:guid>/')
+@crossdomain(origin='*', headers='Session-Key')
+def get_power_center(guid=None):
+    accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')
+    if is_login(mysql.get_db(), request.headers.get('Session-Key', type=str, default=None)):
+        return resp(200, customer.get_power_center(mysql.get_db(), guid))
+    else:
+        return resp(200, status.message(status.Code.SessionNotFound, accept_language))
+
+
+
+@app.route('/rsdu/oms/api/outage/journal/')
+@crossdomain(origin='*', headers='Session-Key')
+def get_outage_journal():
+    accept_language = request.headers.get('Accept-Language', type=str, default='ru-RU')
+    if is_login(mysql.get_db(), request.headers.get('Session-Key', type=str, default=None)):
+        return resp(200, outage_journal.get_list(mysql.get_db(), None, None))
     else:
         return resp(200, status.message(status.Code.SessionNotFound, accept_language))
 

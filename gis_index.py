@@ -64,9 +64,7 @@ def fulltext_search_in_index(db, search):
         cursor = db.cursor()
 
         if layers is not None:
-            params = []
-            params.append(name)
-            params.append(name)
+            params = [name, name]
             params += layers.strip(',').split(',')
             format_strings = ','.join(['%s'] * (len(params) - 2))
 

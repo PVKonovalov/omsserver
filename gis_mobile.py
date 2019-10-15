@@ -5,7 +5,6 @@
     Created on 2019-08-13
 """
 
-import json
 import time
 
 from helper_database import cursor_to_json

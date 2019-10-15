@@ -60,6 +60,46 @@ def get_last_messages(db, session_key):
     return get_last_messages_for_user(db, user_owner_id)
 
 
+def get_list_for_messenger(db, session_key):
+    """
+    Return list of messages for OmsMessenger
+    :param db:
+    :param session_key:
+    :return:
+    """
+    user_owner_id = get_user_id_by_session(db, session_key)
+
+    if user_owner_id is None or user_owner_id <= 0:
+        return {'status': 'Error', 'message': 'User id has not found in the session'}
+
+    sql = 'select BIN_TO_UUID(message.guid) AS guid, ' \
+          'message.sentence as sentence, ' \
+          'message.attachment as attachment, ' \
+          'message_type.alias as type, ' \
+          'message.type_id as type_id, ' \
+          'message.has_received as has_received, ' \
+          'message.time_stamp as timestamp, ' \
+          'message.user_from_id as user_from_id, ' \
+          'user_from.name as user_from, ' \
+          'user_to.name as user_to, ' \
+          'message.user_to_id as user_to_id, ' \
+          'template.name as template, ' \
+          'message.template_id as template_id ' \
+          'from message ' \
+          'left join user as user_from on message.user_from_id = user_from.id ' \
+          'left join user as user_to on message.user_to_id = user_to.id ' \
+          'left join message_type on message.type_id = message_type.id ' \
+          'left join template on message.template_id = template.id ' \
+          'where message.delete_from = 0 and message.delete_to = 0 ' \
+          'and (message.user_from_id = %s or message.user_to_id = %s) ' \
+          'order by message.time_stamp desc'
+
+    cursor = db.cursor()
+    cursor.execute(sql, (user_owner_id, user_owner_id))
+
+    return cursor_to_json(cursor)
+
+
 def get_list(db, order='none', limit=None, page=None, user_from=None, user_to=None, has_received=None):
     """
     Return list of messages
@@ -269,16 +309,23 @@ def get_item_by_guid(db, message_guid):
 
 
 def send_via_email(db, emails, message_str, user_from_id):
-    print('send via email', emails)
+    #print('send via email', emails)
     return
 
 
 def send_via_sms(db, phones, message_str, user_from_id):
-    print('send via sms', phones)
+    cursor = db.cursor()
+
+    for phone in phones:
+        sql = "INSERT INTO smsd.outbox (DestinationNumber, TextDecoded, CreatorID, Coding ) " \
+              "VALUES ( %s, %s, 'OMS', 'Unicode_No_Compression')"
+
+        cursor.execute(sql, (phone, message_str[:140]))
+    #print('send via sms', phones)
     return
 
 
-def send_with_template(db, template_id, message_str, user_from_id, time_stamp, message_guid):
+def send_with_template(db, template_id, message_str, user_from_id, time_stamp):
     """
     Отправка сообщения с помощью шаблона
     :param db:
@@ -306,12 +353,17 @@ def send_with_template(db, template_id, message_str, user_from_id, time_stamp, m
 
     emails = []
     phones = []
+    type_id = 1
+    message_type = 'Text'
+    messages_guids = []
 
     for destination in destinations:
         phone = destination.get('phone')
         email = destination.get('email')
         send_sms = destination.get('send_sms')
         send_email = destination.get('send_email')
+        user_to_id = destination.get('user_id')
+        message_guid = str(uuid.uuid4())
 
         if send_email is not None and email is not None:
             emails.append(email)
@@ -319,14 +371,29 @@ def send_with_template(db, template_id, message_str, user_from_id, time_stamp, m
         if send_sms is not None and phone is not None:
             phones.append(phone)
 
+        sql_insert = 'insert into message (guid, user_from_id,user_to_id,time_stamp,sentence,type_id, template_id) ' \
+                     'values(UUID_TO_BIN(%s),%s,%s,%s,%s,%s,%s)'
+        cursor = db.cursor()
+        try:
+            cursor.execute(sql_insert,
+                           (message_guid, user_from_id, user_to_id, time_stamp, message_str, type_id, template_id))
+            db.commit()
+
+            send_via_rabbit(user_from_id, user(db, user_from_id), user_to_id, message_guid, message_str, message_type)
+
+            messages_guids.append(message_guid)
+
+        except Exception as err:
+            return {'status': 'Error',
+                    'message': 'Error while sending the message. Check your parameters. {}'.format(err)}
+
     if len(emails) != 0:
-        send_via_email(db, emails, message_str)
+        send_via_email(db, emails, message_str, user_from_id)
 
     if len(phones) != 0:
-        send_via_sms(db, phones, message_str)
+        send_via_sms(db, phones, message_str, user_from_id)
 
-    return {'status': 'Ok'}
-
+    return {'status': 'Ok', 'message_guid': messages_guids}
 
 
 def send(db, user_to_id, session_key, message_json):
@@ -364,8 +431,8 @@ def send(db, user_to_id, session_key, message_json):
     time_stamp = datetime.now()
     message_guid = str(uuid.uuid4())
 
-    if template > 0:
-        return send_with_template(db, template, message_str, user_from_id, time_stamp, message_guid)
+    if template is not None and template > 0:
+        return send_with_template(db, template, message_str, user_from_id, time_stamp)
 
     sql_insert = 'insert into message (guid, user_from_id,user_to_id,time_stamp,sentence,type_id) ' \
                  'values(UUID_TO_BIN(%s),%s,%s,%s,%s,%s)'

@@ -50,7 +50,6 @@ def get_list(db, order='none', limit=None, page=None):
                'BIN_TO_UUID(user.guid) as guid, ' \
                'user.name, ' \
                'user.phone, ' \
-               'user.email, ' \
                'mobile_team_id, ' \
                'mobile_team.name as mobile_team, ' \
                'login, ' \
@@ -117,7 +116,6 @@ def get_item(db, session_key, user_id):
           'BIN_TO_UUID(user.guid) as guid, ' \
           'user.name, ' \
           'user.phone, ' \
-          'user.email, ' \
           'mobile_team_id, ' \
           'mobile_team.name as mobile_team, ' \
           'login, ' \
@@ -195,7 +193,6 @@ def get_list_for_cars(db):
     sql = 'select user.id as wialon_id, ' \
           'BIN_TO_UUID(user.guid) as guid, ' \
           'user.phone, ' \
-          'user.email, ' \
           'mobile_team.name as type_name, ' \
           'user.name as car_id, ' \
           'avatar as icon ' \

@@ -67,8 +67,9 @@ def load_object_cache_for_state(db):
     equipment_type содержит список типов оборудования отображаемых на GIS подложке
     :param db:
     """
-
-    equipment_type = "'OTYP_RECLOSER', 'OTYP_AIR_POWER_LINE', 'OTYP_IKZ', 'OTYP_AIR_LINE_SEGMENT'"
+    equipment_type = "'OTYP_IKZ','OTYP_CONSUMER','OTYP_RECLOSER','OTYP_POWER_SWITCH','OTYP_AIR_POWER_LINE'," \
+                     "'OTYP_AIR_LINE_SEGMENT','OTYP_CABLE_POWER_LINE','OTYP_CABLE_LINE_SEGMENT'," \
+                     "'OTYP_DISCONNECTING_SWITCH','OTYP_DISTRIBUTION_SUBSTATION'"
 
     if db is None:
         return
@@ -190,6 +191,8 @@ def signal_arrived(db, signal):
     if ids is None:
         return None
 
+    """Получаем полное описание объекта в котором произошла коммутация"""
+
     oms_login = app.config.get('OMS_LOGIN')
     oms_password = app.config.get('OMS_PASSWORD')
     rsdu_api_url = app.config.get('RSDU_API_URL')
@@ -221,7 +224,11 @@ def signal_arrived(db, signal):
     timestamp = signal['timestamp']
     guid = str(uuid.uuid4())
 
+    """Записываем информацию о коммутации в журнал коммутаций"""
+
     notify_journal.insert(db, guid, equipment_guid, equipment_name, notify, object_guid, object_name, state, timestamp)
+
+    """Формируем JSON для уведомления WEB клиента"""
 
     notify_json = [{
         "equipment_guid": equipment_guid,

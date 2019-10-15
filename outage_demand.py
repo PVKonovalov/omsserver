@@ -8,6 +8,10 @@
 from helper_database import cursor_to_json
 from helper_json import item_from_json
 import customer
+import gis_marker
+
+from flask import current_app as app
+from scada_gateway import ScadaGateway
 
 
 def get_list(db, order='timestamp-asc', limit=50, page=1):
@@ -100,7 +104,26 @@ def create(db, demand_json):
         cursor.execute(sql, (state_id, description, customer_id))
         db.commit()
 
-        return {'status': 'Ok', 'id': cursor.lastrowid}
+        customer_guid = customer.get_guid(db, customer_id)
+
+        guid_marker = gis_marker.insert(db, description, 3, customer_guid)
+
+        power_center_list = customer.get_power_center(db, customer_guid)
+        tag_id = None
+        if power_center_list:
+            for power_center in power_center_list:
+
+                oms_login = app.config.get('OMS_LOGIN')
+                oms_password = app.config.get('OMS_PASSWORD')
+                rsdu_api_url = app.config.get('RSDU_API_URL')
+
+                scada = ScadaGateway(rsdu_api_url, oms_login, oms_password)
+
+                if scada.logon():
+                    tag_id = scada.put_marker_on_object(power_center.get('guid'), description)
+                    scada.logoff()
+
+        return {'status': 'Ok', 'id': cursor.lastrowid, 'tag_id': tag_id, 'guid_marker': guid_marker}
 
     except Exception as e:
         return {'status': 'Error', 'code': 300, 'message': e}

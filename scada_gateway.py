@@ -6,6 +6,7 @@
 """
 
 import requests
+from datetime import datetime, timezone
 
 
 class ScadaGateway:
@@ -16,6 +17,7 @@ class ScadaGateway:
         self.scada_url = scada_url
         self.session_id = None
         self.cache = cache
+        self.user_id = None
 
     def logon(self):
         """
@@ -42,6 +44,9 @@ class ScadaGateway:
         if self.session_id is None:
             return False
         else:
+            user = session.get('User')
+            if user:
+                self.user_id = user.get('Id')
             return True
 
     def logoff(self):
@@ -63,17 +68,23 @@ class ScadaGateway:
 
     def topology_network_state_types(self):
         """
-        Возвращает состояние сети в виде JSON
+        Возвращает состояние сети в виде JSON для заданных типов
         :return: JSON состояния сети или None
         """
         try:
-            r = requests.post(self.scada_url + '/rsdu/scada/api/app/topology/raw/network/state', json={
-                'ObjectTypes': ['OTYP_CONSUMER',
-                                'OTYP_AIR_LINE_SEGMENT',
-                                'OTYP_AIR_POWER_LINE',
-                                'OTYP_RECLOSER',
-                                'OTYP_CABLE_POWER_LINE',
-                                'OTYP_CABLE_LINE_SEGMENT']},
+            r = requests.post(self.scada_url + '/rsdu/scada/api/app/topology/raw/network/state',
+                              json={
+                                  'ObjectTypes': ['OTYP_IKZ',
+                                                  'OTYP_CONSUMER',
+                                                  'OTYP_RECLOSER',
+                                                  'OTYP_POWER_SWITCH',
+                                                  'OTYP_AIR_POWER_LINE',
+                                                  'OTYP_AIR_LINE_SEGMENT',
+                                                  'OTYP_CABLE_POWER_LINE',
+                                                  'OTYP_CABLE_LINE_SEGMENT',
+                                                  'OTYP_DISCONNECTING_SWITCH',
+                                                  'OTYP_DISTRIBUTION_SUBSTATION'
+                                                  ]},
                               headers={'Authorization': 'RSDU ' + self.session_id})
 
             if r.status_code == 200:
@@ -220,3 +231,28 @@ class ScadaGateway:
 
         except requests.exceptions.RequestException:
             return None
+
+    def put_marker_on_object(self, guid_object, text, type='OTYP_TAG_COMMENT'):
+
+        marker = {
+            "object_guid": guid_object,
+            "type_alias": type,
+            "is_visible": True,
+            "create_user_id": self.user_id,
+            "text": text,
+            "start_time": datetime.now(timezone.utc).isoformat()
+        }
+
+        try:
+            r = requests.post(self.scada_url + '/rsdu/scada/api/oic/disptags/tags',
+                              json=marker, headers={'Authorization': 'RSDU ' + self.session_id})
+
+            if r.status_code != 200:
+                return None
+
+            result = r.json()
+
+        except requests.exceptions.RequestException:
+            return None
+
+        return result.get('id')
