@@ -1,3 +1,3 @@
-**Сервер управления отключениями**
+**Outage Management System (OMS) for any SCADA software**
 
 
